@@ -13,6 +13,6 @@
     "babylonjs": "^6.9.0",
     "babylonjs-inspector": "^6.9.0",
     "html-webpack-plugin": "^5.5.3",
-    "ts-loader": "^9.4.3"
+    "ts-loader": "^9.4.4"
   }
 }
