@@ -3,14 +3,23 @@
       "target": "es6",
       "module": "ESNext",
       "moduleResolution": "node",
-      "noResolve": false,
-      "noImplicitAny": false,
       "sourceMap": true,
       "preserveConstEnums":true,
       "lib": [
           "dom",
           "es6"
       ],
-      "rootDir": "src"
+      "rootDir": ".",
+      // strict
+      "strict": true,
+      "noImplicitAny": true,
+      "noImplicitThis": true,
+      "alwaysStrict": true,
+      "strictNullChecks": true,
+      "strictFunctionTypes": true,
+      "strictPropertyInitialization": true,
+      "noImplicitReturns": true,
+      "noFallthroughCasesInSwitch": true,
+      
     }
   }

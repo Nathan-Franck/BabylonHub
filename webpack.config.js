@@ -25,7 +25,12 @@ module.exports = {
         rules: [
             {
                 test: /\.tsx?$/,
-                use: "ts-loader",
+                use: [{
+                    loader: "ts-loader",
+                    options: {
+                        transpileOnly: true,
+                    }
+                }],
                 exclude: /node_modules/,
             },
         ],
@@ -34,7 +39,8 @@ module.exports = {
         new HtmlWebpackPlugin({
             inject: true,
             template: path.resolve(appDirectory, "public/index.html"),
-        })
+        }),
+
     ],
     mode: "development",
 };
