@@ -3,8 +3,8 @@ import { ObjUtil } from "./ObjUtil";
 
 export namespace StaticGLTF {
   type NodeNames = {
-    readonly meshes: Record<string, true>;
-    readonly transformNodes: Record<string, true>;
+    readonly meshes: Record<string, string | null>;
+    readonly transformNodes: Record<string, string | null>;
     readonly skeletons: Record<string, true>;
     readonly lights: Record<string, true>;
     readonly animationGroups: Record<string, true>;
@@ -35,5 +35,11 @@ export namespace StaticGLTF {
       ...gltf,
       ...nodes,
     };
+  }
+
+  export function CreateScaleStatGatherer<T extends Record<string, any>>(statToSubject: T, transformNodes: Record<keyof T, TransformNode>) {
+    return <Prefix extends string>(prefix: Prefix) => {
+      return ObjUtil.singleKeyObject(prefix, ObjUtil.mapValues(ObjUtil.invert(ObjUtil.filterByPrefix(statToSubject, prefix)), ({ value }) => transformNodes[value].scaling.x));
+    }
   }
 }

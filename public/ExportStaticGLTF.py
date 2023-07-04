@@ -55,6 +55,9 @@ class ExportStaticGLTF(bpy.types.Operator):
 
         # Create a variable name (no spaces and camel case)
         variableName = "".join([word.capitalize() for word in filename.split(" ")])
+    
+        def parentName(elem):
+            return f'"{elem.parent.name}"' if elem.parent else "null"
 
         # Write the d.ts file
         with open(dtsPath, "w") as dtsFile:
@@ -62,15 +65,15 @@ class ExportStaticGLTF(bpy.types.Operator):
             dtsFile.write("  meshes: {\n")
             for object in bpy.data.objects:
                 if object.type == "MESH":
-                    dtsFile.write(f'    "{object.name}": true,\n')
+                    dtsFile.write(f'    "{object.name}": {parentName(object)},\n')
             dtsFile.write("  },\n")
             dtsFile.write("  transformNodes: {\n")
-            for objects in bpy.data.objects:
-                if objects.type == "EMPTY":
-                    dtsFile.write(f'    "{objects.name}": true,\n')
+            for object in bpy.data.objects:
+                if object.type == "EMPTY" or object.type == "ARMATURE":
+                    dtsFile.write(f'    "{object.name}": {parentName(object)},\n')
             for armature in bpy.data.armatures:
                 for bone in armature.bones:
-                    dtsFile.write(f'    "{bone.name}": true,\n')
+                    dtsFile.write(f'    "{bone.name}": {parentName(bone)},\n')
             dtsFile.write("  },\n")
             dtsFile.write("  skeletons: {\n")
             for skeleton in bpy.data.armatures:

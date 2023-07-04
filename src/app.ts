@@ -44,11 +44,19 @@ async function run() {
     Knife: 0.1,
     Spoon: 0.06,
   };
+  // Collect all transform nodes that are prefixed with stats and are children of a dish.
+  const DishStats = ObjUtil.mapValues(Dishes.transformNodes, ({ key, value }) => { });
 
   const StackingCompatability: Partial<Record<Dish, Dish[]>> = {
     Plate: ["Plate", "Bowl", "Cup"],
     Bowl: ["Cup"],
     Cup: [],
+  };
+
+  var dishStatGatherer = StaticGLTF.CreateScaleStatGatherer(DishesSpec.transformNodes, Dishes.transformNodes);
+  var stats = {
+    ...dishStatGatherer("TopDiameter"),
+    ...dishStatGatherer("BottomDiameter"),
   };
 
   ObjUtil.entries(Dishes.meshes).forEach(([name, mesh]) => {
