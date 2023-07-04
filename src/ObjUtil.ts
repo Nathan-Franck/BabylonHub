@@ -13,4 +13,8 @@ export namespace ObjUtil {
   } {
     return fromEntries(entries(obj).map(([key, value]) => <const>[key, fn({ key, value })]));
   }
+  export function randomKey<T extends {}>(obj: T): keyof T {
+    const keys = Object.keys(obj);
+    return keys[Math.floor(Math.random() * keys.length)] as keyof T;
+  }
 }
