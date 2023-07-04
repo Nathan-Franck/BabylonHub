@@ -63,41 +63,27 @@ async function run() {
 
   async function generateRandomStack() {
     const stack: Dish[] = [];
-    // Create new empty node to add dish models under.
     const stackNode = new TransformNode("stack", scene);
-    for (let i = 0; i < 100; i ++)
-    {
-      // Add a random dish to the stack.
-      const dish = ObjUtil.randomKey(StackingCompatability) as Dish;
-      stack.push(dish);
-      // Sort the stack by compatability.
-      stack.sort((a, b) => {
-        const compatability = StackingCompatability[a];
-        if (compatability?.includes(b)) {
-          return -1;
-        }
-        const compatability2 = StackingCompatability[b];
-        if (compatability2?.includes(a)) {
-          return 1;
-        }
-        return 0;
-      });
-      // Clear all existing children under stackNode
+    for (let i = 0; i < 100; i++) {
+      stack.push(ObjUtil.randomKey(StackingCompatability));
+      stack.sort((a, b) =>
+        StackingCompatability[a]?.includes(b)
+          ? -1
+          : StackingCompatability[b]?.includes(a)
+            ? 1
+            : 0);
       stackNode.getChildMeshes().forEach((mesh) => mesh.dispose());
-      // Add all dishes in the stack to the stackNode.
       var currentHeight = 0;
       stack.forEach((dish, i) => {
         const mesh = Dishes.meshes[dish].clone(`${dish}${i}`, stackNode)!;
         mesh.position = Vector3.Up().scale(currentHeight);
         currentHeight += DishThicknesses[dish];
       });
-      // Wait 1 second
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    setTimeout(generateRandomStack, 1000);
   }
-  setTimeout(generateRandomStack, 1000);
+  generateRandomStack();
 
   // Setup inspector
   Inspector.Show(scene, {
