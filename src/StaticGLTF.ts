@@ -39,9 +39,9 @@ export namespace StaticGLTF {
 
   export class ModelStats<T extends Record<string, any>> {
     constructor(public childToParent: T, public transformNodes: Record<keyof T, TransformNode>) {}
-    fromChildScale<Prefix extends string>(prefix: Prefix) {
+    fromChildNode<Prefix extends string, U>(prefix: Prefix, extractFn: (node: TransformNode) => U) {
       const subjectToStatKey = ObjUtil.invert(ObjUtil.filterByPrefix(this.childToParent, prefix));
-      const result = ObjUtil.mapValues(subjectToStatKey, ({ value }) => this.transformNodes[value].scaling.x)
+      const result = ObjUtil.mapValues(subjectToStatKey, ({ value }) => extractFn(this.transformNodes[value]));
       return ObjUtil.singleKeyObject(prefix, result);
     }
   }
