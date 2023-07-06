@@ -1,4 +1,4 @@
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder } from "babylonjs";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix } from "babylonjs";
 import { Inspector } from "babylonjs-inspector";
 import { DishesSpec } from "../public/Dishes";
 import { FpsRigSpec } from "../public/FPS Rig";
@@ -96,13 +96,26 @@ async function run() {
   // Duplicate a bowl, take the top diameter of it and fill it with 5cm spheres.
   const bowl = Dishes.meshes.Bowl.clone("bowl", null)!;
   bowl.position = new Vector3(3, 0, 0);
-  const bowlTop = stats.Top.Bowl;
-  const bowlTopPositions = fillCircleFromOutside(bowlTop.radius, 0.2, 70);
-  bowlTopPositions.forEach((position) => {
-    const sphere = MeshBuilder.CreateSphere("sphere", { diameter: 0.2 }, scene);
-    sphere.position = bowl.absolutePosition.add(bowlTop.position).add(new Vector3(position.x, 0, position.y));
-  });
+  fillCircleFromOutside(stats.Top.Bowl.radius, 0.2, 70)
+    .forEach((position) => {
+      const sphere = MeshBuilder.CreateSphere("sphere", { diameter: 0.2 }, scene);
+      sphere.parent = bowl;
+      sphere.position = stats.Top.Bowl.position.add(new Vector3(position.x, 0, position.y));
+    });
 
+  // Using the radius of the bottom of the fork, fill another bowl with forks.
+  const bowl2 = Dishes.meshes.Bowl.clone("bowl2", null)!;
+  bowl2.position = new Vector3(0, 0, 3);
+  fillCircleFromOutside(stats.Top.Bowl.radius, stats.Bottom.Fork.radius * 2, 70)
+    .forEach((position) => {
+      const fork = Dishes.meshes.Fork.clone("fork", null)!;
+      fork.parent = bowl2;
+      fork.position = stats.Top.Bowl.position.add(new Vector3(position.x, 0, position.y));
+      // make forks point up at a random angle.
+      fork.rotation = new Vector3(0, Math.random() * Math.PI * 2, Math.PI / 2);
+    });
+
+  // Stack some dishes.
   async function generateRandomStack() {
     const stack: Dish[] = [];
     const stackNode = new TransformNode("stack", scene);
