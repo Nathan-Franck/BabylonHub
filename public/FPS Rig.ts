@@ -1,9 +1,10 @@
-export const FpsRigSpec = <const>{
-  meshes: {
+export const FpsRigSpec = <const>
+{
+  "meshes": {
     "Arm": "Armature",
-    "Banana": "Armature",
+    "Banana": "Armature"
   },
-  transformNodes: {
+  "transformNodes": {
     "Armature": null,
     "Reference": null,
     "Reference.001": null,
@@ -29,16 +30,15 @@ export const FpsRigSpec = <const>{
     "Thumb.C": "Thumb.B",
     "Palm.Fold.B": "Hand",
     "Palm.Fold.A": "Hand",
-    "ForearmMid": "Elbow",
+    "ForearmMid": "Elbow"
   },
-  skeletons: {
-    "Armature": true,
+  "skeletons": {
+    "Armature": true
   },
-  lights: {
-  },
-  animationGroups: {
+  "lights": {},
+  "animationGroups": {
     "Grip": true,
     "Slip": true,
-    "WristCurl": true,
-  },
+    "WristCurl": true
+  }
 }

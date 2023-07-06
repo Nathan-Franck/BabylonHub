@@ -38,10 +38,11 @@ export namespace StaticGLTF {
   }
 
   export class ModelStats<T extends Record<string, any>> {
-    constructor(public statToSubject: T, public transformNodes: Record<keyof T, TransformNode>) {
-    }
-    gatherFromScale<Prefix extends string>(prefix: Prefix) {
-      return ObjUtil.singleKeyObject(prefix, ObjUtil.mapValues(ObjUtil.invert(ObjUtil.filterByPrefix(this.statToSubject, prefix)), ({ value }) => this.transformNodes[value].scaling.x));
+    constructor(public childToParent: T, public transformNodes: Record<keyof T, TransformNode>) {}
+    fromChildScale<Prefix extends string>(prefix: Prefix) {
+      const subjectToStatKey = ObjUtil.invert(ObjUtil.filterByPrefix(this.childToParent, prefix));
+      const result = ObjUtil.mapValues(subjectToStatKey, ({ value }) => this.transformNodes[value].scaling.x)
+      return ObjUtil.singleKeyObject(prefix, result);
     }
   }
 }

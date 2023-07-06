@@ -1,6 +1,7 @@
 import bpy
 import os
 import sys
+import json
 
 bl_info = {
     "name": "Static GLTF Exporter",
@@ -57,35 +58,32 @@ class ExportStaticGLTF(bpy.types.Operator):
         variableName = "".join([word.capitalize() for word in filename.split(" ")])
     
         def parentName(elem):
-            return f'"{elem.parent.name}"' if elem.parent else "null"
+            return elem.parent.name if elem.parent else None
 
         # Write the d.ts file
         with open(dtsPath, "w") as dtsFile:
-            dtsFile.write(f"export const {variableName}Spec = " + "<const>{\n")
-            dtsFile.write("  meshes: {\n")
+            dtsFile.write(f"export const {variableName}Spec = " + "<const>\n")
+            result = {
+                "meshes": {},
+                "transformNodes": {},
+                "skeletons": {},
+                "lights": {},
+                "animationGroups": {},
+            }
             for object in bpy.data.objects:
                 if object.type == "MESH":
-                    dtsFile.write(f'    "{object.name}": {parentName(object)},\n')
-            dtsFile.write("  },\n")
-            dtsFile.write("  transformNodes: {\n")
+                    result["meshes"][object.name] = parentName(object)
             for object in bpy.data.objects:
                 if object.type == "EMPTY" or object.type == "ARMATURE":
-                    dtsFile.write(f'    "{object.name}": {parentName(object)},\n')
+                    result["transformNodes"][object.name] = parentName(object)
             for armature in bpy.data.armatures:
                 for bone in armature.bones:
-                    dtsFile.write(f'    "{bone.name}": {parentName(bone)},\n')
-            dtsFile.write("  },\n")
-            dtsFile.write("  skeletons: {\n")
+                    result["transformNodes"][bone.name] = parentName(bone)
             for skeleton in bpy.data.armatures:
-                dtsFile.write(f'    "{skeleton.name}": true,\n')
-            dtsFile.write("  },\n")
-            dtsFile.write("  lights: {\n")
+                result["skeletons"][skeleton.name] = True
             for light in bpy.data.lights:
-                dtsFile.write(f'    "{light.name}": true,\n')
-            dtsFile.write("  },\n")
-            dtsFile.write("  animationGroups: {\n")
+                result["lights"][light.name] = True
             for action in bpy.data.actions:
-                dtsFile.write(f'    "{action.name}": true,\n')
-            dtsFile.write("  },\n")
-            dtsFile.write("}\n")
+                result["animationGroups"][action.name] = True
+            dtsFile.write(json.dumps(result, indent=2) + "\n")
         return {"FINISHED"}
