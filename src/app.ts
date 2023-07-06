@@ -54,13 +54,13 @@ async function run() {
   };
 
   var dishModelStats = new StaticGLTF.ModelStats(DishesSpec.transformNodes, Dishes.transformNodes);
-  var diameterAndPosition = (node: TransformNode) => ({
-    diameter: node.absoluteScaling.x,
+  var radiusAndPosition = (node: TransformNode) => ({
+    radius: node.scaling.x,
     position: node.position,
   });
   var stats = {
-    ...dishModelStats.fromChildNode("TopDiameter", diameterAndPosition),
-    ...dishModelStats.fromChildNode("BottomDiameter", diameterAndPosition),
+    ...dishModelStats.fromChildNode("Top", radiusAndPosition),
+    ...dishModelStats.fromChildNode("Bottom", radiusAndPosition),
   };
   console.log(stats);
 
@@ -77,13 +77,15 @@ async function run() {
   // Given a position, radius, and count, return a spiral of positions (Vector3) around the position.
   function fillCircleFromOutside(circleRadius: number, itemDiameter: number, count: number) {
     const positions: Vector2[] = [];
-    const itemsTowardsCenter = Math.ceil(circleRadius / itemDiameter);
+    const itemsTowardsCenter = Math.round(circleRadius / itemDiameter);
+    const innerOffsetPerItem = circleRadius / itemsTowardsCenter;
     fill: for (let j = 0; j < itemsTowardsCenter; j++) {
-      const radius = circleRadius - j * itemDiameter;
-      const itemsInRadius = Math.floor(2 * Math.PI * radius / itemDiameter);
+      const radius = circleRadius - (j + 0.5) * innerOffsetPerItem;
+      const offset = j % 2 === 0 ? itemDiameter / 2 : 0;
+      const itemsInRadius = Math.round(2 * Math.PI * radius / itemDiameter);
       const anglePerItem = 2 * Math.PI / itemsInRadius;
       for (let i = 0; i < itemsInRadius; i++) {
-        const angle = i * anglePerItem;
+        const angle = (i + offset) * anglePerItem;
         positions.push(new Vector2(Math.cos(angle) * radius, Math.sin(angle) * radius));
         if (positions.length >= count) break fill;
       }
@@ -93,12 +95,12 @@ async function run() {
 
   // Duplicate a bowl, take the top diameter of it and fill it with 5cm spheres.
   const bowl = Dishes.meshes.Bowl.clone("bowl", null)!;
-  bowl.position = new Vector3(2, 0, 0);
-  const bowlTopDiameter = stats.TopDiameter.Bowl.diameter;
-  const bowlTopPositions = fillCircleFromOutside(bowlTopDiameter / 2, 0.2, 70);
+  bowl.position = new Vector3(3, 0, 0);
+  const bowlTop = stats.Top.Bowl;
+  const bowlTopPositions = fillCircleFromOutside(bowlTop.radius, 0.2, 70);
   bowlTopPositions.forEach((position) => {
     const sphere = MeshBuilder.CreateSphere("sphere", { diameter: 0.2 }, scene);
-    sphere.position = bowl.position.add(new Vector3(position.x, 0, position.y));
+    sphere.position = bowl.absolutePosition.add(bowlTop.position).add(new Vector3(position.x, 0, position.y));
   });
 
   async function generateRandomStack() {
@@ -119,7 +121,7 @@ async function run() {
         mesh.position = Vector3.Up().scale(currentHeight);
         currentHeight += DishThicknesses[dish];
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
   }

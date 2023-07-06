@@ -40,7 +40,6 @@ module.exports = {
             inject: true,
             template: path.resolve(appDirectory, "public/index.html"),
         }),
-
     ],
     mode: "development",
 };
