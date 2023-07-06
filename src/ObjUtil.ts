@@ -1,9 +1,11 @@
 import { Invert } from "ts-toolbelt/out/Object/Invert";
 
 export namespace ObjUtil {
-  // Strongly typed Object.fromEntries implementation
   export function entries<T>(obj: T) {
     return Object.entries(obj as any) as any as Array<readonly [keyof T, T[keyof T]]>;
+  }
+  export function values<T>(obj: T) {
+    return Object.values(obj) as Array<T[keyof T]>;
   }
   export function fromEntries<K extends string | number | symbol, V>(entries: Array<readonly [K, V]>) {
     return Object.fromEntries(entries) as {

@@ -13,7 +13,8 @@ export namespace StaticGLTF {
     T extends NodeNames
   >(parentScene: Scene, path: string, names: T) {
     const gltf = await SceneLoader.ImportMeshAsync(null, "/", path, parentScene);
-    console.log(gltf.meshes);
+    // get the __root__ node generated from loading the gltf
+    const root = gltf.meshes[0];
     const nodes = {
       meshes: ObjUtil.mapValues(names.meshes, ({ key }) => gltf.meshes.find(m => m.name === key)) as {
         [key in keyof T["meshes"]]: Mesh;
@@ -32,6 +33,7 @@ export namespace StaticGLTF {
       },
     };
     return {
+      root,
       ...gltf,
       ...nodes,
     };

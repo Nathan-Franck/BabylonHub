@@ -1,4 +1,4 @@
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix } from "babylonjs";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix, Quaternion } from "babylonjs";
 import { Inspector } from "babylonjs-inspector";
 import { DishesSpec } from "../public/Dishes";
 import { FpsRigSpec } from "../public/FPS Rig";
@@ -34,6 +34,8 @@ async function run() {
   }
 
   const Dishes = await StaticGLTF.Load(scene, "Dishes.gltf", DishesSpec);
+  // Move dishes to the right.
+  Dishes.root.position = new Vector3(10, 0, 0);
 
   type Dish = keyof typeof DishesSpec.meshes;
   const DishThicknesses: Record<Dish, number> = {
@@ -45,8 +47,6 @@ async function run() {
     Spoon: 0.06,
   };
   // Collect all transform nodes that are prefixed with stats and are children of a dish.
-  const DishStats = ObjUtil.mapValues(Dishes.transformNodes, ({ key, value }) => { });
-
   const StackingCompatability: Partial<Record<Dish, Dish[]>> = {
     Plate: ["Plate", "Bowl", "Cup"],
     Bowl: ["Cup"],
@@ -75,13 +75,14 @@ async function run() {
   });
 
   // Given a position, radius, and count, return a spiral of positions (Vector3) around the position.
-  function fillCircleFromOutside(circleRadius: number, itemDiameter: number, count: number) {
+  function fillCircleFromOutside(circleRadius: number, itemRadius: number, count: number) {
     const positions: Vector2[] = [];
+    const itemDiameter = itemRadius * 2;
     const itemsTowardsCenter = Math.round(circleRadius / itemDiameter);
     const innerOffsetPerItem = circleRadius / itemsTowardsCenter;
     fill: for (let j = 0; j < itemsTowardsCenter; j++) {
       const radius = circleRadius - (j + 0.5) * innerOffsetPerItem;
-      const offset = j % 2 === 0 ? itemDiameter / 2 : 0;
+      const offset = j % 2 === 0 ? itemRadius : 0;
       const itemsInRadius = Math.round(2 * Math.PI * radius / itemDiameter);
       const anglePerItem = 2 * Math.PI / itemsInRadius;
       for (let i = 0; i < itemsInRadius; i++) {
@@ -95,8 +96,8 @@ async function run() {
 
   // Duplicate a bowl, take the top diameter of it and fill it with 5cm spheres.
   const bowl = Dishes.meshes.Bowl.clone("bowl", null)!;
-  bowl.position = new Vector3(3, 0, 0);
-  fillCircleFromOutside(stats.Top.Bowl.radius, 0.2, 70)
+  bowl.position = new Vector3(4, 0, 0);
+  fillCircleFromOutside(stats.Top.Bowl.radius, 0.1, 70)
     .forEach((position) => {
       const sphere = MeshBuilder.CreateSphere("sphere", { diameter: 0.2 }, scene);
       sphere.parent = bowl;
@@ -104,21 +105,49 @@ async function run() {
     });
 
   // Using the radius of the bottom of the fork, fill another bowl with forks.
-  const bowl2 = Dishes.meshes.Bowl.clone("bowl2", null)!;
-  bowl2.position = new Vector3(0, 0, 3);
-  fillCircleFromOutside(stats.Top.Bowl.radius, stats.Bottom.Fork.radius * 2, 70)
-    .forEach((position) => {
-      const fork = Dishes.meshes.Fork.clone("fork", null)!;
-      fork.parent = bowl2;
-      fork.position = stats.Top.Bowl.position.add(new Vector3(position.x, 0, position.y));
-      // make forks point up at a random angle.
-      fork.rotation = new Vector3(0, Math.random() * Math.PI * 2, Math.PI / 2);
-    });
+
+  function FillItWithForks(dishToFill: Dish, offset: Vector3) {
+    const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
+    dishInstance.parent = null;
+    dishInstance.position = offset;
+    const forkBottomPositions = fillCircleFromOutside(stats.Bottom[dishToFill].radius, stats.Bottom.Fork.radius, 70)
+      .map(position => new Vector3(position.x, 0, position.y))
+      .map(position => stats.Bottom[dishToFill].position.add(position));
+    const forkTopPositions = fillCircleFromOutside(stats.Top[dishToFill].radius, stats.Top.Fork.radius, forkBottomPositions.length)
+      // .map(position => new Vector3(-position.x, 0, -position.y))
+      // Rotate all points by 90 degrees.
+      .map(position => new Vector3(position.y, 0, -position.x))
+      .map(position => stats.Top[dishToFill].position.add(position));
+
+    forkBottomPositions
+      .forEach((bottomPosition, index) => {
+        const fork = Dishes.meshes.Fork.clone("fork", null)!;
+        fork.parent = dishInstance;
+        const pointingDirection = Vector3.Normalize(forkTopPositions[index].subtract(bottomPosition));
+        fork.rotationQuaternion = Quaternion.FromLookDirectionLH(pointingDirection, Vector3.Normalize(Vector3.Cross(pointingDirection, Vector3.Up())))
+          .multiply(Quaternion.FromEulerAngles(Math.random() * Math.PI * 2, Math.PI / 2, 0));
+        fork.computeWorldMatrix(true);
+        fork.position = bottomPosition
+          .subtract(Vector3.TransformNormal(stats.Bottom.Fork.position, fork._localMatrix));
+      });
+
+      return dishInstance;
+  }
+  FillItWithForks("Bowl", new Vector3(-2, 0, 0));
+  const cupWithForks = FillItWithForks("Cup", new Vector3(0, 0, 0));
+  FillItWithForks("Plate", new Vector3(2, 0, 0));
+
+  // Frame camera on bowl2
+  {
+    var bowlCenter = cupWithForks.getBoundingInfo().boundingBox.centerWorld;
+    camera.setTarget(bowlCenter);
+  }
 
   // Stack some dishes.
   async function generateRandomStack() {
     const stack: Dish[] = [];
     const stackNode = new TransformNode("stack", scene);
+    stackNode.position = new Vector3(0, 0, -2);
     for (let i = 0; i < 100; i++) {
       stack.push(ObjUtil.randomKey(StackingCompatability));
       stack.sort((a, b) =>
