@@ -37,9 +37,11 @@ export namespace StaticGLTF {
     };
   }
 
-  export function CreateScaleStatGatherer<T extends Record<string, any>>(statToSubject: T, transformNodes: Record<keyof T, TransformNode>) {
-    return <Prefix extends string>(prefix: Prefix) => {
-      return ObjUtil.singleKeyObject(prefix, ObjUtil.mapValues(ObjUtil.invert(ObjUtil.filterByPrefix(statToSubject, prefix)), ({ value }) => transformNodes[value].scaling.x));
+  export class ModelStats<T extends Record<string, any>> {
+    constructor(public statToSubject: T, public transformNodes: Record<keyof T, TransformNode>) {
+    }
+    gatherFromScale<Prefix extends string>(prefix: Prefix) {
+      return ObjUtil.singleKeyObject(prefix, ObjUtil.mapValues(ObjUtil.invert(ObjUtil.filterByPrefix(this.statToSubject, prefix)), ({ value }) => this.transformNodes[value].scaling.x));
     }
   }
 }

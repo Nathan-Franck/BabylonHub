@@ -53,10 +53,10 @@ async function run() {
     Cup: [],
   };
 
-  var dishStatGatherer = StaticGLTF.CreateScaleStatGatherer(DishesSpec.transformNodes, Dishes.transformNodes);
+  var dishModelStats = new StaticGLTF.ModelStats(DishesSpec.transformNodes, Dishes.transformNodes);
   var stats = {
-    ...dishStatGatherer("TopDiameter"),
-    ...dishStatGatherer("BottomDiameter"),
+    ...dishModelStats.gatherFromScale("TopDiameter"),
+    ...dishModelStats.gatherFromScale("BottomDiameter"),
   };
 
   ObjUtil.entries(Dishes.meshes).forEach(([name, mesh]) => {
