@@ -46,7 +46,7 @@ class ExportStaticGLTF(bpy.types.Operator):
 
         # Export the gltf file
         bpy.ops.export_scene.gltf(
-            export_format="GLTF_SEPARATE",
+            # export_format="GLTF_SEPARATE",
             filepath=gltfPath,
             export_apply=True,
         )

@@ -1,21 +1,74 @@
+import { CreateStandardCanvas } from "CreateStandardCanvas";
+import { CubeSpec } from "Cube";
+import { DishesSpec } from "Dishes";
 import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix, Quaternion } from "babylonjs";
+import { FpsRigSpec } from "FPS Rig";
 import { Inspector } from "babylonjs-inspector";
-import { DishesSpec } from "../public/Dishes";
-import { FpsRigSpec } from "../public/FPS Rig";
-import { CreateStandardCanvas } from "./CreateStandardCanvas";
-import { ObjUtil } from "./ObjUtil";
-import { StaticGLTF } from "./StaticGLTF";
+import { ObjUtil } from "ObjUtil";
+import { Perf } from "Perf";
+import { StaticGLTF } from "StaticGLTF";
+
+/**
+ * Store some state in the web browser.
+ */
+class StateStore<T extends Record<any, any>> {
+  constructor(private key: string, private state: T) {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      this.state = JSON.parse(stored);
+      // Iterate through all elements of the initial state and compare, if they are not the same types, then just use the initial state.
+      var objectsToCheck: Array<{ stored: Record<any, any>, initial: Record<any, any> }> = [{ stored: this.state, initial: state }];
+      check: while (objectsToCheck.length > 0) {
+        const { stored, initial } = objectsToCheck.pop()!;
+        for (const key in initial) {
+          console.log("StateStore: checking state type", key, typeof initial[key], typeof stored[key]);
+          if (typeof initial[key] !== typeof stored[key]) {
+            console.log("StateStore: state type mismatch, using initial state", key, initial[key], this.state[key]);
+            this.state = state;
+            break check;
+          }
+          if (typeof initial[key] === "object") {
+            objectsToCheck.push({ stored: stored[key], initial: initial[key] });
+          }
+        }
+      }
+    }
+  }
+  getState() {
+    return this.state;
+  }
+  setState(state: T) {
+    this.state = state;
+    localStorage.setItem(this.key, JSON.stringify(state));
+  }
+}
+
+async function timeAsync<T>(name: string, f: () => T): Promise<T> {
+  const startTime = performance.now();
+  const result = await f();
+  console.log(name, performance.now() - startTime, "ms");
+  return result;
+}
 
 async function run() {
+  const startTime = performance.now();
   const canvas = CreateStandardCanvas();
 
   // initialize babylon scene and engine
   const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
 
+  const debugStateStore = new StateStore("debug", { camera: { alpha: 0, beta: 0, radius: 1 } });
   const camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
-  const light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
+  // set camera angle from debug state
+  {
+    const { alpha, beta, radius } = debugStateStore.getState().camera;
+    camera.alpha = alpha;
+    camera.beta = beta;
+    camera.radius = radius;
+  }
+  new HemisphericLight("light2", new Vector3(1, 1, 0), scene);
 
   const FPSRig = await StaticGLTF.Load(scene, "FPS Rig.glb", FpsRigSpec);
 
@@ -33,7 +86,8 @@ async function run() {
     Slip.play(true);
   }
 
-  const Dishes = await StaticGLTF.Load(scene, "Dishes.gltf", DishesSpec);
+  const Dishes = await Perf.timeAsync("Dishes", async () => await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec));
+
   // Move dishes to the right.
   Dishes.root.position = new Vector3(10, 0, 0);
 
@@ -62,7 +116,6 @@ async function run() {
     ...dishModelStats.fromChildNode("Top", radiusAndPosition),
     ...dishModelStats.fromChildNode("Bottom", radiusAndPosition),
   };
-  console.log(stats);
 
   ObjUtil.entries(Dishes.meshes).forEach(([name, mesh]) => {
     const thickness = DishThicknesses[name];
@@ -104,8 +157,19 @@ async function run() {
       sphere.position = stats.Top.Bowl.position.add(new Vector3(position.x, 0, position.y));
     });
 
-  // Using the radius of the bottom of the fork, fill another bowl with forks.
+  // seed randomness
+  function mulberry32(a: number) {
+    return function () {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+  }
 
+  const pseudoRandom01 = mulberry32(0);
+
+  // Using the radius of the bottom of the fork, fill another bowl with forks.
   function FillItWithForks(dishToFill: Dish, offset: Vector3) {
     const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
     dishInstance.parent = null;
@@ -125,13 +189,13 @@ async function run() {
         fork.parent = dishInstance;
         const pointingDirection = Vector3.Normalize(forkTopPositions[index].subtract(bottomPosition));
         fork.rotationQuaternion = Quaternion.FromLookDirectionLH(pointingDirection, Vector3.Normalize(Vector3.Cross(pointingDirection, Vector3.Up())))
-          .multiply(Quaternion.FromEulerAngles(Math.random() * Math.PI * 2, Math.PI / 2, 0));
+          .multiply(Quaternion.FromEulerAngles(pseudoRandom01() * Math.PI * 2, Math.PI / 2, 0));
         fork.computeWorldMatrix(true);
         fork.position = bottomPosition
           .subtract(Vector3.TransformNormal(stats.Bottom.Fork.position, fork._localMatrix));
       });
 
-      return dishInstance;
+    return dishInstance;
   }
   FillItWithForks("Bowl", new Vector3(-2, 0, 0));
   const cupWithForks = FillItWithForks("Cup", new Vector3(0, 0, 0));
@@ -140,15 +204,15 @@ async function run() {
   // Frame camera on bowl2
   {
     var bowlCenter = cupWithForks.getBoundingInfo().boundingBox.centerWorld;
-    camera.setTarget(bowlCenter);
+    // camera.setTarget(bowlCenter);
   }
 
   // Stack some dishes.
-  async function generateRandomStack() {
+  (async () => {
     const stack: Dish[] = [];
     const stackNode = new TransformNode("stack", scene);
-    stackNode.position = new Vector3(0, 0, -2);
-    for (let i = 0; i < 100; i++) {
+    stackNode.position = new Vector3(0, 0, -3);
+    for (let i = 0; i < 30; i++) {
       stack.push(ObjUtil.randomKey(StackingCompatability));
       stack.sort((a, b) =>
         StackingCompatability[a]?.includes(b)
@@ -163,11 +227,9 @@ async function run() {
         mesh.position = Vector3.Up().scale(currentHeight);
         currentHeight += DishThicknesses[dish];
       });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-
-  }
-  generateRandomStack();
+  })();
 
   // Setup inspector
   Inspector.Show(scene, {
@@ -185,7 +247,11 @@ async function run() {
   // Run the main render loop
   engine.runRenderLoop(() => {
     scene.render();
+    // Sync debug state
+    debugStateStore.setState({ camera: { alpha: camera.alpha, beta: camera.beta, radius: camera.radius } });
   });
+
+  console.log(performance.now() - startTime, "ms to load scene");
 }
 
 run();

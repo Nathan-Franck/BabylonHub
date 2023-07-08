@@ -1,25 +1,28 @@
 {
-    "compilerOptions": {
-      "target": "es6",
-      "module": "ESNext",
-      "moduleResolution": "node",
-      "sourceMap": true,
-      "preserveConstEnums":true,
-      "lib": [
-          "dom",
-          "es6"
-      ],
-      "rootDir": ".",
-      // strict
-      "strict": true,
-      "noImplicitAny": true,
-      "noImplicitThis": true,
-      "alwaysStrict": true,
-      "strictNullChecks": true,
-      "strictFunctionTypes": true,
-      "strictPropertyInitialization": true,
-      "noImplicitReturns": true,
-      "noFallthroughCasesInSwitch": true,
-      
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Ensure public folder can have .ts files, same as src folder */
+    "paths": {
+      "*": ["./public/*", "./src/*"]
     }
-  }
+  },
+  "include": ["src", "public"]
+}
