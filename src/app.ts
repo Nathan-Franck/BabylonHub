@@ -1,11 +1,10 @@
 import { CreateStandardCanvas } from "CreateStandardCanvas";
 import { CubeSpec } from "Cube";
 import { DishesSpec } from "Dishes";
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix, Quaternion, DirectionalLight, ShadowGenerator, Color3 } from "babylonjs";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Quaternion, DirectionalLight, ShadowGenerator, Color3 } from "babylonjs";
 import { FpsRigSpec } from "FPS Rig";
 import { Inspector } from "babylonjs-inspector";
 import { ObjUtil } from "ObjUtil";
-import { Perf } from "Perf";
 import { StaticGLTF } from "StaticGLTF";
 
 /**
@@ -16,7 +15,6 @@ class StateStore<T extends Record<any, any>> {
     const stored = localStorage.getItem(key);
     if (stored) {
       this.state = JSON.parse(stored);
-      // Iterate through all elements of the initial state and compare, if they are not the same types, then just use the initial state.
       var objectsToCheck: Array<{ stored: Record<any, any>, initial: Record<any, any> }> = [{ stored: this.state, initial: state }];
       check: while (objectsToCheck.length > 0) {
         const { stored, initial } = objectsToCheck.pop()!;
@@ -43,7 +41,7 @@ class StateStore<T extends Record<any, any>> {
   }
 }
 
-async function timeAsync<T>(name: string, f: () => T): Promise<T> {
+export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   const startTime = performance.now();
   const result = await f();
   console.log(name, performance.now() - startTime, "ms");
@@ -73,11 +71,9 @@ async function run() {
   {
     const skyLight = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
     skyLight.intensity = 0.05
-    // sky blue color
     skyLight.diffuse = new Color3(0.31, 0.4, 0.5);
     const groundLight = new HemisphericLight("light2", new Vector3(0, -1, 0), scene);
     groundLight.intensity = 0.025
-    // soft brown color
     groundLight.diffuse = new Color3(0.5, 0.4, 0.31);
   }
   const light = new DirectionalLight("light2", new Vector3(-1, -1, -1), scene);
@@ -87,7 +83,7 @@ async function run() {
   }
   const shadowGenerator = new ShadowGenerator(1024, light);
   {
-    // shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.useBlurExponentialShadowMap = true;
     shadowGenerator.blurKernel = 32;
     shadowGenerator.useKernelBlur = true;
     shadowGenerator.blurScale = 2;
@@ -122,7 +118,7 @@ async function run() {
     Slip.play(true);
   }
 
-  const Cube = await StaticGLTF.Load(scene, "Cube.glb", CubeSpec);
+  await StaticGLTF.Load(scene, "Cube.glb", CubeSpec);
   const Dishes = await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec);
 
   // Move dishes to the right.
@@ -257,14 +253,8 @@ async function run() {
     return dishInstance;
   }
   FillItWithForks("Bowl", new Vector3(-2, 0, 0));
-  const cupWithForks = FillItWithForks("Cup", new Vector3(0, 0, 0));
+  FillItWithForks("Cup", new Vector3(0, 0, 0));
   FillItWithForks("Plate", new Vector3(2, 0, 0));
-
-  // Frame camera on bowl2
-  {
-    var bowlCenter = cupWithForks.getBoundingInfo().boundingBox.centerWorld;
-    // camera.setTarget(bowlCenter);
-  }
 
   // Stack some dishes.
   (async () => {

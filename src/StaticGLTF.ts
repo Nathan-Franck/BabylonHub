@@ -1,6 +1,5 @@
 import { Mesh, Scene, SceneLoader, TransformNode, Light, Skeleton, AnimationGroup } from "babylonjs";
 import { ObjUtil } from "./ObjUtil";
-import { Perf } from "./Perf";
 
 export namespace StaticGLTF {
   type NodeNames = {
