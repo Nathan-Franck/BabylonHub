@@ -209,35 +209,42 @@ async function run() {
   const pseudoRandom01 = mulberry32(0);
 
   // Using the radius of the bottom of the fork, fill another bowl with forks.
-  function FillItWithForks(dishToFill: Dish, offset: Vector3) {
+  function FillItWithSpoons(dishToFill: Dish, offset: Vector3) {
     const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
     shadowGenerator.addShadowCaster(dishInstance);
     dishInstance.receiveShadows = true;
     dishInstance.parent = null;
     dishInstance.position = offset;
-    const forkBottomPositions = fillCircleFromOutside(
+    const spoonBottomPositions = fillCircleFromOutside(
       stats.Bottom[dishToFill].radius,
-      stats.Bottom.Fork.radius,
+      stats.Bottom.Spoon.radius,
       70
     )
       .map(position => new Vector3(position.x, 0, position.y))
       .map(position => stats.Bottom[dishToFill].position.add(position));
-    const forkTopPositions = fillCircleFromOutside(
+    const spoonTopPositions = fillCircleFromOutside(
       stats.Top[dishToFill].radius,
-      stats.Top.Fork.radius,
-      forkBottomPositions.length
+      stats.Top.Spoon.radius,
+      spoonBottomPositions.length
     )
       .map(position => new Vector3(position.y, 0, -position.x))
       .map(position => stats.Top[dishToFill].position.add(position));
 
-    forkBottomPositions
+    // randomize order of spoonTopPositions
+    for (let i = spoonTopPositions.length - 1; i > 0; i--) {
+      const j = Math.floor(pseudoRandom01() * (i + 1));
+      [spoonTopPositions[i], spoonTopPositions[j]] = [spoonTopPositions[j], spoonTopPositions[i]];
+    }
+
+    spoonBottomPositions
+      .slice(0, spoonTopPositions.length)
       .forEach((bottomPosition, index) => {
-        const fork = Dishes.meshes.Fork.clone("fork", null)!;
-        shadowGenerator.addShadowCaster(fork);
-        fork.receiveShadows = true;
-        fork.parent = dishInstance;
-        const pointingDirection = Vector3.Normalize(forkTopPositions[index].subtract(bottomPosition));
-        fork.rotationQuaternion = Quaternion.FromLookDirectionLH(
+        const spoon = Dishes.meshes.Spoon.clone("spoon", null)!;
+        shadowGenerator.addShadowCaster(spoon);
+        spoon.receiveShadows = true;
+        spoon.parent = dishInstance;
+        const pointingDirection = Vector3.Normalize(spoonTopPositions[index].subtract(bottomPosition));
+        spoon.rotationQuaternion = Quaternion.FromLookDirectionLH(
           pointingDirection,
           Vector3.Normalize(Vector3.Cross(
             pointingDirection,
@@ -245,16 +252,16 @@ async function run() {
           ))
         )
           .multiply(Quaternion.FromEulerAngles(pseudoRandom01() * Math.PI * 2, Math.PI / 2, 0));
-        fork.computeWorldMatrix(true);
-        fork.position = bottomPosition
-          .subtract(Vector3.TransformNormal(stats.Bottom.Fork.position, fork._localMatrix));
+        spoon.computeWorldMatrix(true);
+        spoon.position = bottomPosition
+          .subtract(Vector3.TransformNormal(stats.Bottom.Spoon.position, spoon._localMatrix));
       });
 
     return dishInstance;
   }
-  FillItWithForks("Bowl", new Vector3(-2, 0, 0));
-  FillItWithForks("Cup", new Vector3(0, 0, 0));
-  FillItWithForks("Plate", new Vector3(2, 0, 0));
+  FillItWithSpoons("Bowl", new Vector3(-2, 0, 0));
+  FillItWithSpoons("Cup", new Vector3(0, 0, 0));
+  FillItWithSpoons("Plate", new Vector3(2, 0, 0));
 
   // Stack some dishes.
   (async () => {
