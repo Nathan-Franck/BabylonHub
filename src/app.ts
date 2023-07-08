@@ -58,8 +58,17 @@ async function run() {
   const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
 
-  const debugStateStore = new StateStore("debug", { camera: { alpha: 0, beta: 0, radius: 1 }, inspector: false });
-  const camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
+  const debugStateStore = new StateStore("debug", {
+    camera: { alpha: 0, beta: 0, radius: 1 },
+    inspector: false
+  });
+  const camera: ArcRotateCamera = new ArcRotateCamera(
+    "Camera",
+    Math.PI / 2,
+    Math.PI / 2,
+    2,
+    Vector3.Zero(),
+    scene);
   camera.attachControl(canvas, true);
   {
     const skyLight = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
@@ -113,8 +122,8 @@ async function run() {
     Slip.play(true);
   }
 
-  const Cube = await Perf.timeAsync("Cube", async () => await StaticGLTF.Load(scene, "Cube.glb", CubeSpec));
-  const Dishes = await Perf.timeAsync("Dishes", async () => await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec));
+  const Cube = await StaticGLTF.Load(scene, "Cube.glb", CubeSpec);
+  const Dishes = await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec);
 
   // Move dishes to the right.
   Dishes.root.position = new Vector3(10, 0, 0);
@@ -279,7 +288,10 @@ async function run() {
         mesh.position = Vector3.Up().scale(currentHeight);
         currentHeight += DishThicknesses[dish];
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(
+        resolve,
+        100
+      ));
     }
   })();
 
@@ -323,7 +335,10 @@ async function run() {
   // Run the main render loop
   engine.runRenderLoop(() => {
     scene.render();
-    debugStateStore.setState({ camera: { alpha: camera.alpha, beta: camera.beta, radius: camera.radius }, inspector: Inspector.IsVisible });
+    debugStateStore.setState({
+      camera: { alpha: camera.alpha, beta: camera.beta, radius: camera.radius },
+      inspector: Inspector.IsVisible
+    });
   });
 
   console.log(performance.now() - startTime, "ms to load scene");
