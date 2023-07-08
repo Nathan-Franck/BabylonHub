@@ -23,6 +23,8 @@ export const DishesSpec = <const>
     "Top.005": "Spoon"
   },
   "skeletons": {},
-  "lights": {},
+  "lights": {
+    "Sun": true
+  },
   "animationGroups": {}
 }

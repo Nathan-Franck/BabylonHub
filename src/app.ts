@@ -1,7 +1,7 @@
 import { CreateStandardCanvas } from "CreateStandardCanvas";
 import { CubeSpec } from "Cube";
 import { DishesSpec } from "Dishes";
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix, Quaternion } from "babylonjs";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, TransformNode, Vector2, MeshBuilder, Matrix, Quaternion, DirectionalLight, ShadowGenerator, Color3 } from "babylonjs";
 import { FpsRigSpec } from "FPS Rig";
 import { Inspector } from "babylonjs-inspector";
 import { ObjUtil } from "ObjUtil";
@@ -58,9 +58,37 @@ async function run() {
   const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
 
-  const debugStateStore = new StateStore("debug", { camera: { alpha: 0, beta: 0, radius: 1 } });
+  const debugStateStore = new StateStore("debug", { camera: { alpha: 0, beta: 0, radius: 1 }, inspector: false });
   const camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
+  {
+    const skyLight = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
+    skyLight.intensity = 0.05
+    // sky blue color
+    skyLight.diffuse = new Color3(0.31, 0.4, 0.5);
+    const groundLight = new HemisphericLight("light2", new Vector3(0, -1, 0), scene);
+    groundLight.intensity = 0.025
+    // soft brown color
+    groundLight.diffuse = new Color3(0.5, 0.4, 0.31);
+  }
+  const light = new DirectionalLight("light2", new Vector3(-1, -1, -1), scene);
+  {
+    light.position = new Vector3(0, 10, 0);
+    light.shadowEnabled = true;
+  }
+  const shadowGenerator = new ShadowGenerator(1024, light);
+  {
+    // shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.blurKernel = 32;
+    shadowGenerator.useKernelBlur = true;
+    shadowGenerator.blurScale = 2;
+    shadowGenerator.blurBoxOffset = 1;
+    shadowGenerator.usePercentageCloserFiltering = true;
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+    shadowGenerator.bias = 0.00001;
+    shadowGenerator.normalBias = 0.01;
+  }
+
   // set camera angle from debug state
   {
     const { alpha, beta, radius } = debugStateStore.getState().camera;
@@ -68,7 +96,6 @@ async function run() {
     camera.beta = beta;
     camera.radius = radius;
   }
-  new HemisphericLight("light2", new Vector3(1, 1, 0), scene);
 
   const FPSRig = await StaticGLTF.Load(scene, "FPS Rig.glb", FpsRigSpec);
 
@@ -86,6 +113,7 @@ async function run() {
     Slip.play(true);
   }
 
+  const Cube = await Perf.timeAsync("Cube", async () => await StaticGLTF.Load(scene, "Cube.glb", CubeSpec));
   const Dishes = await Perf.timeAsync("Dishes", async () => await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec));
 
   // Move dishes to the right.
@@ -93,13 +121,14 @@ async function run() {
 
   type Dish = keyof typeof DishesSpec.meshes;
   const DishThicknesses: Record<Dish, number> = {
-    Plate: 0.3,
+    Plate: 0.1,
     Bowl: 0.3,
     Cup: 0.5,
     Fork: 0.06,
     Knife: 0.1,
     Spoon: 0.06,
   };
+
   // Collect all transform nodes that are prefixed with stats and are children of a dish.
   const StackingCompatability: Partial<Record<Dish, Dish[]>> = {
     Plate: ["Plate", "Bowl", "Cup"],
@@ -107,7 +136,10 @@ async function run() {
     Cup: [],
   };
 
-  var dishModelStats = new StaticGLTF.ModelStats(DishesSpec.transformNodes, Dishes.transformNodes);
+  var dishModelStats = new StaticGLTF.ModelStats(
+    DishesSpec.transformNodes,
+    Dishes.transformNodes
+  );
   var radiusAndPosition = (node: TransformNode) => ({
     radius: node.scaling.x,
     position: node.position,
@@ -149,10 +181,12 @@ async function run() {
 
   // Duplicate a bowl, take the top diameter of it and fill it with 5cm spheres.
   const bowl = Dishes.meshes.Bowl.clone("bowl", null)!;
+  shadowGenerator.addShadowCaster(bowl);
   bowl.position = new Vector3(4, 0, 0);
   fillCircleFromOutside(stats.Top.Bowl.radius, 0.1, 70)
     .forEach((position) => {
       const sphere = MeshBuilder.CreateSphere("sphere", { diameter: 0.2 }, scene);
+      shadowGenerator.addShadowCaster(sphere);
       sphere.parent = bowl;
       sphere.position = stats.Top.Bowl.position.add(new Vector3(position.x, 0, position.y));
     });
@@ -172,23 +206,39 @@ async function run() {
   // Using the radius of the bottom of the fork, fill another bowl with forks.
   function FillItWithForks(dishToFill: Dish, offset: Vector3) {
     const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
+    shadowGenerator.addShadowCaster(dishInstance);
+    dishInstance.receiveShadows = true;
     dishInstance.parent = null;
     dishInstance.position = offset;
-    const forkBottomPositions = fillCircleFromOutside(stats.Bottom[dishToFill].radius, stats.Bottom.Fork.radius, 70)
+    const forkBottomPositions = fillCircleFromOutside(
+      stats.Bottom[dishToFill].radius,
+      stats.Bottom.Fork.radius,
+      70
+    )
       .map(position => new Vector3(position.x, 0, position.y))
       .map(position => stats.Bottom[dishToFill].position.add(position));
-    const forkTopPositions = fillCircleFromOutside(stats.Top[dishToFill].radius, stats.Top.Fork.radius, forkBottomPositions.length)
-      // .map(position => new Vector3(-position.x, 0, -position.y))
-      // Rotate all points by 90 degrees.
+    const forkTopPositions = fillCircleFromOutside(
+      stats.Top[dishToFill].radius,
+      stats.Top.Fork.radius,
+      forkBottomPositions.length
+    )
       .map(position => new Vector3(position.y, 0, -position.x))
       .map(position => stats.Top[dishToFill].position.add(position));
 
     forkBottomPositions
       .forEach((bottomPosition, index) => {
         const fork = Dishes.meshes.Fork.clone("fork", null)!;
+        shadowGenerator.addShadowCaster(fork);
+        fork.receiveShadows = true;
         fork.parent = dishInstance;
         const pointingDirection = Vector3.Normalize(forkTopPositions[index].subtract(bottomPosition));
-        fork.rotationQuaternion = Quaternion.FromLookDirectionLH(pointingDirection, Vector3.Normalize(Vector3.Cross(pointingDirection, Vector3.Up())))
+        fork.rotationQuaternion = Quaternion.FromLookDirectionLH(
+          pointingDirection,
+          Vector3.Normalize(Vector3.Cross(
+            pointingDirection,
+            Vector3.Up()
+          ))
+        )
           .multiply(Quaternion.FromEulerAngles(pseudoRandom01() * Math.PI * 2, Math.PI / 2, 0));
         fork.computeWorldMatrix(true);
         fork.position = bottomPosition
@@ -224,6 +274,8 @@ async function run() {
       var currentHeight = 0;
       stack.forEach((dish, i) => {
         const mesh = Dishes.meshes[dish].clone(`${dish}${i}`, stackNode)!;
+        shadowGenerator.addShadowCaster(mesh);
+        mesh.receiveShadows = true;
         mesh.position = Vector3.Up().scale(currentHeight);
         currentHeight += DishThicknesses[dish];
       });
@@ -231,13 +283,37 @@ async function run() {
     }
   })();
 
+  // force all models in scene to cast and receive shadows
+  scene.meshes.forEach((mesh) => {
+    shadowGenerator.addShadowCaster(mesh);
+    mesh.receiveShadows = true;
+  });
+
   // Setup inspector
   Inspector.Show(scene, {
     embedMode: true,
     handleResize: true,
-    enableClose: false,
     enablePopup: false,
   });
+
+  // Create a 'show' inspector button in the top right corner of the canvas
+  // manipulate dom for this
+  const inspectorButton = document.createElement("button");
+  inspectorButton.innerText = "Show Inspector";
+  inspectorButton.style.position = "absolute";
+  inspectorButton.style.top = "0";
+  inspectorButton.style.left = "0";
+  inspectorButton.style.zIndex = "100";
+  inspectorButton.addEventListener("click", () => {
+    Inspector.Show(scene, {
+      embedMode: true,
+      handleResize: true,
+      enablePopup: false,
+    });
+  });
+  document.body.appendChild(inspectorButton);
+
+  if (!debugStateStore.getState().inspector) Inspector.Hide();
 
   // Window resize handler
   window.addEventListener("resize", () => {
@@ -247,8 +323,7 @@ async function run() {
   // Run the main render loop
   engine.runRenderLoop(() => {
     scene.render();
-    // Sync debug state
-    debugStateStore.setState({ camera: { alpha: camera.alpha, beta: camera.beta, radius: camera.radius } });
+    debugStateStore.setState({ camera: { alpha: camera.alpha, beta: camera.beta, radius: camera.radius }, inspector: Inspector.IsVisible });
   });
 
   console.log(performance.now() - startTime, "ms to load scene");
