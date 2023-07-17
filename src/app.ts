@@ -6,40 +6,7 @@ import { FpsRigSpec } from "FPS Rig";
 import { Inspector } from "babylonjs-inspector";
 import { ObjUtil } from "ObjUtil";
 import { StaticGLTF } from "StaticGLTF";
-
-/**
- * Store some state in the web browser.
- */
-class StateStore<T extends Record<any, any>> {
-  constructor(private key: string, private state: T) {
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      this.state = JSON.parse(stored);
-      var objectsToCheck: Array<{ stored: Record<any, any>, initial: Record<any, any> }> = [{ stored: this.state, initial: state }];
-      check: while (objectsToCheck.length > 0) {
-        const { stored, initial } = objectsToCheck.pop()!;
-        for (const key in initial) {
-          console.log("StateStore: checking state type", key, typeof initial[key], typeof stored[key]);
-          if (typeof initial[key] !== typeof stored[key]) {
-            console.log("StateStore: state type mismatch, using initial state", key, initial[key], this.state[key]);
-            this.state = state;
-            break check;
-          }
-          if (typeof initial[key] === "object") {
-            objectsToCheck.push({ stored: stored[key], initial: initial[key] });
-          }
-        }
-      }
-    }
-  }
-  getState() {
-    return this.state;
-  }
-  setState(state: T) {
-    this.state = state;
-    localStorage.setItem(this.key, JSON.stringify(state));
-  }
-}
+import { StateStore } from "StateStore";
 
 export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   const startTime = performance.now();
@@ -76,6 +43,7 @@ async function run() {
     groundLight.intensity = 0.025
     groundLight.diffuse = new Color3(0.5, 0.4, 0.31);
   }
+
   const light = new DirectionalLight("light2", new Vector3(-1, -1, -1), scene);
   {
     light.position = new Vector3(0, 10, 0);
@@ -175,6 +143,7 @@ async function run() {
       const offset = j % 2 === 0 ? itemRadius : 0;
       const itemsInRadius = Math.round(2 * Math.PI * radius / itemDiameter);
       const anglePerItem = 2 * Math.PI / itemsInRadius;
+
       for (let i = 0; i < itemsInRadius; i++) {
         const angle = (i + offset) * anglePerItem;
         positions.push(new Vector2(Math.cos(angle) * radius, Math.sin(angle) * radius));
@@ -198,7 +167,7 @@ async function run() {
 
   // seed randomness
   function mulberry32(a: number) {
-    return function () {
+    return function() {
       var t = a += 0x6D2B79F5;
       t = Math.imul(t ^ t >>> 15, t | 1);
       t ^= t + Math.imul(t ^ t >>> 7, t | 61);
@@ -208,6 +177,7 @@ async function run() {
 
   const pseudoRandom01 = mulberry32(0);
 
+  // this is a comment
   // Using the radius of the bottom of the fork, fill another bowl with forks.
   function FillItWithSpoons(dishToFill: Dish, offset: Vector3) {
     const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
@@ -260,8 +230,15 @@ async function run() {
     return dishInstance;
   }
   FillItWithSpoons("Bowl", new Vector3(-2, 0, 0));
-  FillItWithSpoons("Cup", new Vector3(0, 0, 0));
+  const cupInstance = FillItWithSpoons("Cup", new Vector3(0, 0, 0));
   FillItWithSpoons("Plate", new Vector3(2, 0, 0));
+
+  // Focus camera on bounds of cup
+  {
+    const cupBounds = cupInstance.getHierarchyBoundingVectors();
+    const cupCenter = cupBounds.max.add(cupBounds.min).scale(0.5);
+    camera.setTarget(cupCenter);
+  }
 
   // Stack some dishes.
   (async () => {
@@ -305,22 +282,51 @@ async function run() {
     enablePopup: false,
   });
 
-  // Create a 'show' inspector button in the top right corner of the canvas
-  // manipulate dom for this
-  const inspectorButton = document.createElement("button");
-  inspectorButton.innerText = "Show Inspector";
-  inspectorButton.style.position = "absolute";
-  inspectorButton.style.top = "0";
-  inspectorButton.style.left = "0";
-  inspectorButton.style.zIndex = "100";
-  inspectorButton.addEventListener("click", () => {
-    Inspector.Show(scene, {
-      embedMode: true,
-      handleResize: true,
-      enablePopup: false,
-    });
+
+  // skmple div generator function that takes style args aand returns a div
+  function newElement<T extends keyof HTMLElementTagNameMap>(
+    elemType: T,
+    parent: HTMLElement,
+    params: Omit<Partial<HTMLElementTagNameMap[T]>, "style"> & {
+      style: Partial<CSSStyleDeclaration>
+    }
+  ) {
+    const div = document.createElement(elemType);
+    Object.assign(div, params);
+    Object.assign(div.style, params.style);
+    parent.appendChild(div);
+    return div;
+  }
+
+  newElement("button", document.body, {
+    innerText: "Show Inspector",
+    onclick: () => {
+      Inspector.Show(scene, {
+        embedMode: true,
+        handleResize: true,
+        enablePopup: false,
+      });
+    },
+    style: {
+      position: "absolute",
+      top: "0",
+      left: "0",
+      zIndex: "100"
+    }
   });
-  document.body.appendChild(inspectorButton);
+
+  const fpsCounter = newElement("div", document.body, {
+    innerText: "0 fps",
+    style: {
+      position: "absolute",
+      top: "0",
+      right: "0",
+      zIndex: "100"
+    }
+  });
+  scene.registerBeforeRender(() => {
+    fpsCounter.innerText = `${engine.getFps().toFixed()} fps`;
+  });
 
   if (!debugStateStore.getState().inspector) Inspector.Hide();
 
@@ -341,4 +347,4 @@ async function run() {
   console.log(performance.now() - startTime, "ms to load scene");
 }
 
-run();
+run()
