@@ -366,9 +366,9 @@ async function run() {
       scene,
       {
         position: ikTestPosition.add(new Vector3(
-          0,
+          Math.cos(performance.now() / 1000) * 0.5,
           Math.sin(performance.now() / 1000) * 0.5,
-          Math.cos(performance.now() / 1000) * 0.5
+          0
         )),
         rotation: new Quaternion(0, 0, 0, 1),
       },

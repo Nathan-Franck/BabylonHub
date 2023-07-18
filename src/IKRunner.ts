@@ -1,4 +1,5 @@
 import { Vector3, Quaternion, TransformNode, MeshBuilder, Scene, Color4 } from "babylonjs";
+import { newElement } from "HtmlUtils"
 
 export function AngleBetween3Lengths(a: number, b: number, c: number): number {
   return Math.acos((a * a + b * b - c * c) / (2 * a * b));
@@ -30,11 +31,11 @@ export function ikRunner(
 
   // Automatically cross-cross the 'up' direction to get it orthoganal to the forward direction
   function lazyFromLookDirection(forward: Vector3, up: Vector3) {
-    const finalUp = Vector3.Cross(forward, Vector3.Cross(up, forward)).normalize();
+    const finalUp = Vector3.Normalize(Vector3.Cross(forward, Vector3.Cross(up, forward)));
     lazyDebugNormal(scene, "finalUp", state.position, finalUp, new Color4(1, 0, 0, 1));
     lazyDebugNormal(scene, "forward", state.position, forward, new Color4(0, 0, 1, 1));
     return Quaternion.FromLookDirectionLH(
-      forward.normalize(),
+      Vector3.Normalize(forward),
       finalUp,
     );
   }
@@ -62,6 +63,16 @@ export function ikRunner(
 
   // Calculate elbow angle required to get wrist to target position
   const shoulderToWristDistance: number = shoulderToHandTarget.length();
+  // Find and remove existing shoulderToWristDstance div
+  const existingShoulderToWristDistanceDiv = document.getElementById("shoulderToWristDistance");
+  if (existingShoulderToWristDistanceDiv) {
+    existingShoulderToWristDistanceDiv.remove();
+  }
+  newElement("div", document.body, {
+    id: "shoulderToWristDistance",
+    innerHTML: `shoulderToWristDistance: ${shoulderToWristDistance}`,
+    style: { position: 'absolute', top: '100px', left: '0px' }
+  });
   const elbowAngle: number = AngleBetween3Lengths(ForarmLength, UpperArmLength, shoulderToWristDistance);
   const shoulderAngle: number = AngleBetween3Lengths(shoulderToWristDistance, UpperArmLength, ForarmLength);
 
@@ -70,18 +81,18 @@ export function ikRunner(
   nodes.Shoulder.rotationQuaternion = Quaternion.Identity()
     .multiply(Quaternion.RotationAxis(Vector3.Forward(), Math.PI))
     .multiply(startingShoulderRotation)
-    .multiply(Quaternion.RotationAxis(Vector3.Right(), halfPi))
-    // .multiply(Quaternion.RotationAxis(Vector3.Up(), -halfPi));
-    // nodes.Elbow.rotationQuaternion = Quaternion.RotationAxis(Vector3.Forward(), Math.PI - elbowAngle);
+    .multiply(Quaternion.RotationAxis(Vector3.Right(), halfPi - shoulderAngle))
+    .multiply(Quaternion.RotationAxis(Vector3.Up(), -halfPi))
+  nodes.Elbow.rotationQuaternion = Quaternion.RotationAxis(Vector3.Forward(), Math.PI + elbowAngle);
 
-    // // Orient forearm to view wrist target within reasonable limits
-    // nodes.Forearm.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Up(), Vector3.Forward().applyRotationQuaternion(Quaternion.Inverse(nodes.Elbow.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Right(), halfPi));
-    // // Rotate mid region half of what forearm got rotated
-    // nodes.ForearmMid.rotationQuaternion = Quaternion.Slerp(Quaternion.Identity(), nodes.Forearm.rotationQuaternion, ForearmBlend);
-    // // Rotate wrist to view wrist target - only allow a very small amount of Yaw
-    // nodes.Hand.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Right(), Vector3.Up().applyRotationQuaternion(Quaternion.Inverse(nodes.Forearm.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Up(), -90));
+  // // Orient forearm to view wrist target within reasonable limits
+  // nodes.Forearm.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Up(), Vector3.Forward().applyRotationQuaternion(Quaternion.Inverse(nodes.Elbow.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Right(), halfPi));
+  // // Rotate mid region half of what forearm got rotated
+  // nodes.ForearmMid.rotationQuaternion = Quaternion.Slerp(Quaternion.Identity(), nodes.Forearm.rotationQuaternion, ForearmBlend);
+  // // Rotate wrist to view wrist target - only allow a very small amount of Yaw
+  // nodes.Hand.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Right(), Vector3.Up().applyRotationQuaternion(Quaternion.Inverse(nodes.Forearm.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Up(), -90));
 
-    // remove previous "debugLine" mesh
-    ;
+  // remove previous "debugLine" mesh
+  ;
   lazyDebugLine(scene, "debugLine", [nodes.Hand.getAbsolutePosition(), state.position], new Color4(0, 1, 0, 1));
 }
