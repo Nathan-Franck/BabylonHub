@@ -1,5 +1,4 @@
 import { CreateStandardCanvas } from "CreateStandardCanvas";
-import { CubeSpec } from "Cube";
 import { DishesSpec } from "Dishes";
 import {
   Engine,
@@ -14,7 +13,6 @@ import {
   DirectionalLight,
   ShadowGenerator,
   Color3,
-  NodeMaterial,
 } from "babylonjs";
 import { FpsRigSpec } from "FPS Rig";
 import { Inspector } from "babylonjs-inspector";
@@ -23,6 +21,7 @@ import { StaticGLTF } from "StaticGLTF";
 import { StateStore } from "StateStore";
 import { RoomSpec } from "Room";
 import { newElement } from "HtmlUtils";
+import { ikRunner } from "IKRunner";
 
 export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   const startTime = performance.now();
@@ -87,19 +86,24 @@ async function run() {
   }
 
   const FPSRig = await StaticGLTF.Load(scene, "FPS Rig.glb", FpsRigSpec);
+  FPSRig.root.position = new Vector3(-10, 0, 0);
+  FPSRig.root.rotationQuaternion = Quaternion.Identity();
 
   // Get some transforms.
   {
     const { Armature, Shoulder, "Finger.Middle.A": middleA } = FPSRig.transformNodes;
     Armature.scaling = Vector3.One().scale(.1);
+    Armature.rotationQuaternion = Quaternion.Identity();
     console.log(Shoulder.id + " " + middleA.id);
   }
 
   // Play some animations.
   {
-    const { WristCurl, Slip } = FPSRig.animationGroups;
-    WristCurl.play(true);
-    Slip.play(true);
+    const { ArmatureAction, WristCurl, Slip } = FPSRig.animationGroups;
+    ArmatureAction.stop();
+    WristCurl.stop();
+    Slip.stop();
+
   }
 
   const Room = await StaticGLTF.Load(scene, "Room.glb", RoomSpec);
@@ -256,348 +260,12 @@ async function run() {
     mesh.flipFaces(true);
   }
 
-  // Focus camera on bounds of cup
+  // Focus camera on bounds of mesh
   {
-    const countertopBounds = Room.meshes.Countertops.getHierarchyBoundingVectors();
-    const countertopCenter = countertopBounds.max.add(countertopBounds.min).scale(0.5);
-    camera.setTarget(countertopCenter);
+    const bounds = FPSRig.meshes.Arm.getHierarchyBoundingVectors();
+    const center = bounds.max.add(bounds.min).scale(0.5);
+    camera.setTarget(center);
   }
-
-  // new matrieal with new shader graph for the floor
-  {
-    const mesh = Room.meshes.Floorboards;
-    const shader = new NodeMaterial("floor", scene);
-    shader.parseSerializedObject(
-
-{
-  "tags": null,
-  "ignoreAlpha": false,
-  "maxSimultaneousLights": 4,
-  "mode": 0,
-  "forceAlphaBlending": false,
-  "id": "node",
-  "name": "node",
-  "checkReadyOnEveryCall": false,
-  "checkReadyOnlyOnce": false,
-  "state": "",
-  "alpha": 1,
-  "backFaceCulling": true,
-  "cullBackFaces": true,
-  "sideOrientation": 1,
-  "alphaMode": 2,
-  "_needDepthPrePass": false,
-  "disableDepthWrite": false,
-  "disableColorWrite": false,
-  "forceDepthWrite": false,
-  "depthFunction": 0,
-  "separateCullingPass": false,
-  "fogEnabled": true,
-  "pointSize": 1,
-  "zOffset": 0,
-  "zOffsetUnits": 0,
-  "pointsCloud": false,
-  "fillMode": 0,
-  "editorData": {
-    "locations": [
-      {
-        "blockId": 10,
-        "x": 840,
-        "y": 120
-      },
-      {
-        "blockId": 9,
-        "x": 600,
-        "y": 100
-      },
-      {
-        "blockId": 7,
-        "x": 320,
-        "y": 40
-      },
-      {
-        "blockId": 5,
-        "x": -20,
-        "y": 0
-      },
-      {
-        "blockId": 6,
-        "x": 20.1339111328125,
-        "y": 119.921875
-      },
-      {
-        "blockId": 8,
-        "x": 300,
-        "y": 180
-      },
-      {
-        "blockId": 12,
-        "x": 320,
-        "y": 300
-      },
-      {
-        "blockId": 11,
-        "x": 0,
-        "y": 320
-      }
-    ],
-    "frames": [],
-    "x": 0.446441650390625,
-    "y": 19.888397216796875,
-    "zoom": 1
-  },
-  "customType": "BABYLON.NodeMaterial",
-  "outputNodes": [
-    10,
-    12
-  ],
-  "blocks": [
-    {
-      "customType": "BABYLON.VertexOutputBlock",
-      "id": 10,
-      "name": "VertexOutput",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [
-        {
-          "name": "vector",
-          "inputName": "vector",
-          "targetBlockId": 9,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        }
-      ],
-      "outputs": []
-    },
-    {
-      "customType": "BABYLON.TransformBlock",
-      "id": 9,
-      "name": "WorldPos * ViewProjectionTransform",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [
-        {
-          "name": "vector",
-          "inputName": "vector",
-          "targetBlockId": 7,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        },
-        {
-          "name": "transform",
-          "inputName": "transform",
-          "targetBlockId": 8,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output"
-        },
-        {
-          "name": "xyz"
-        }
-      ],
-      "complementZ": 0,
-      "complementW": 1
-    },
-    {
-      "customType": "BABYLON.TransformBlock",
-      "id": 7,
-      "name": "WorldPos",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [
-        {
-          "name": "vector",
-          "inputName": "vector",
-          "targetBlockId": 5,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        },
-        {
-          "name": "transform",
-          "inputName": "transform",
-          "targetBlockId": 6,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output"
-        },
-        {
-          "name": "xyz"
-        }
-      ],
-      "complementZ": 0,
-      "complementW": 1
-    },
-    {
-      "customType": "BABYLON.InputBlock",
-      "id": 5,
-      "name": "position",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "output"
-        }
-      ],
-      "type": 8,
-      "mode": 1,
-      "systemValue": null,
-      "animationType": 0,
-      "min": 0,
-      "max": 0,
-      "isBoolean": false,
-      "matrixMode": 0,
-      "isConstant": false,
-      "groupInInspector": "",
-      "convertToGammaSpace": false,
-      "convertToLinearSpace": false
-    },
-    {
-      "customType": "BABYLON.InputBlock",
-      "id": 6,
-      "name": "World",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "output"
-        }
-      ],
-      "type": 128,
-      "mode": 0,
-      "systemValue": 1,
-      "animationType": 0,
-      "min": 0,
-      "max": 0,
-      "isBoolean": false,
-      "matrixMode": 0,
-      "isConstant": false,
-      "groupInInspector": "",
-      "convertToGammaSpace": false,
-      "convertToLinearSpace": false
-    },
-    {
-      "customType": "BABYLON.InputBlock",
-      "id": 8,
-      "name": "ViewProjection",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "output"
-        }
-      ],
-      "type": 128,
-      "mode": 0,
-      "systemValue": 4,
-      "animationType": 0,
-      "min": 0,
-      "max": 0,
-      "isBoolean": false,
-      "matrixMode": 0,
-      "isConstant": false,
-      "groupInInspector": "",
-      "convertToGammaSpace": false,
-      "convertToLinearSpace": false
-    },
-    {
-      "customType": "BABYLON.FragmentOutputBlock",
-      "id": 12,
-      "name": "FragmentOutput",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 2,
-      "inputs": [
-        {
-          "name": "rgba",
-          "inputName": "rgba",
-          "targetBlockId": 11,
-          "targetConnectionName": "output",
-          "isExposedOnFrame": true,
-          "exposedPortPosition": -1
-        },
-        {
-          "name": "rgb"
-        },
-        {
-          "name": "a"
-        }
-      ],
-      "outputs": [],
-      "convertToGammaSpace": false,
-      "convertToLinearSpace": false,
-      "useLogarithmicDepth": false
-    },
-    {
-      "customType": "BABYLON.InputBlock",
-      "id": 11,
-      "name": "color",
-      "comments": "",
-      "visibleInInspector": false,
-      "visibleOnFrame": false,
-      "target": 1,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "output"
-        }
-      ],
-      "type": 64,
-      "mode": 0,
-      "systemValue": null,
-      "animationType": 0,
-      "min": 0,
-      "max": 0,
-      "isBoolean": false,
-      "matrixMode": 0,
-      "isConstant": false,
-      "groupInInspector": "",
-      "convertToGammaSpace": false,
-      "convertToLinearSpace": false,
-      "valueType": "BABYLON.Color4",
-      "value": [
-        0.8,
-        0.0,
-        0.0,
-        1
-      ]
-    }
-  ]
-
-    });
-    shader.build(true);
-    mesh.material = shader;
-
-  }
-
-
 
   // Stack some dishes.
   (async () => {
@@ -677,6 +345,36 @@ async function run() {
   // Window resize handler
   window.addEventListener("resize", () => {
     engine.resize();
+  });
+
+  // Force recaltulate world matrices recursively up from FPSRig
+  ObjUtil.values(FPSRig.transformNodes).forEach(node => node.computeWorldMatrix(true));
+  const ikTestPosition = FPSRig.transformNodes.Hand.absolutePosition.add(new Vector3(0, -1, 0));
+  const ikStats = {
+    BlendElbowToWristYaw: 0,
+    ForearmBlend: 1,
+    ForarmLength: FPSRig.transformNodes.Hand.absolutePosition
+      .subtract(FPSRig.transformNodes.Elbow.absolutePosition)
+      .length(),
+    UpperArmLength: FPSRig.transformNodes.Shoulder.absolutePosition
+      .subtract(FPSRig.transformNodes.Elbow.absolutePosition)
+      .length(),
+  };
+
+  scene.registerBeforeRender(() => {
+    ikRunner(
+      scene,
+      {
+        position: ikTestPosition.add(new Vector3(
+          0,
+          Math.sin(performance.now() / 1000) * 0.5,
+          Math.cos(performance.now() / 1000) * 0.5
+        )),
+        rotation: new Quaternion(0, 0, 0, 1),
+      },
+      ikStats,
+      FPSRig.transformNodes,
+    );
   });
 
   // Run the main render loop

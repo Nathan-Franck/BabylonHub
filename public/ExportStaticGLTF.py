@@ -83,7 +83,11 @@ class ExportStaticGLTF(bpy.types.Operator):
                 result["skeletons"][skeleton.name] = True
             for light in bpy.data.lights:
                 result["lights"][light.name] = True
-            for action in bpy.data.actions:
-                result["animationGroups"][action.name] = True
+            for index, action in enumerate(bpy.data.actions):
+                if index == 0:
+                    root = action.groups[0].name
+                    result["animationGroups"][root+"Action"] = True
+                else:
+                    result["animationGroups"][action.name] = True
             dtsFile.write(json.dumps(result, indent=2) + "\n")
         return {"FINISHED"}

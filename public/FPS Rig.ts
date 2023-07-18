@@ -37,7 +37,8 @@ export const FpsRigSpec = <const>
   },
   "lights": {},
   "animationGroups": {
-    "Grip": true,
+    // "Grip": true,
+    "ArmatureAction": true, // First one is named like this per-group .. though not for the bananawhich runs on a different root?
     "Slip": true,
     "WristCurl": true
   }
