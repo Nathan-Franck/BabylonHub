@@ -1,6 +1,8 @@
 
 import type tsModule from 'typescript/lib/tsserverlibrary';
 import type ts from 'typescript/lib/tsserverlibrary';
+import fs from 'fs';
+import path from 'path';
 
 function init(modules: { typescript: typeof ts }) {
   /**
@@ -66,17 +68,47 @@ function init(modules: { typescript: typeof ts }) {
           : target[key];
       },
     });
-    // languageServiceHost.resolveModuleNames = (moduleNames, containingFIle, reusedNames, redirectedReference, options, containingSourceFile) => {
-    //   return moduleNames.map(moduleName => {
-    //     if (moduleName === "babylonjs") {
-    //       return undefined;
-    //     }
-    //     return ts.resolveModuleName(moduleName, containingFIle, options, languageServiceHostProxy).resolvedModule;
-    //   });
-    // }
-    languageServiceHost.resolveModuleNameLiterals = (moduleNames, containingFIle, reusedNames, redirectedReference, options, containingSourceFile) => {
+
+    languageServiceHost.getScriptSnapshot = (fileName: string) => {
+      if (fileName.endsWith('.blend')) {
+        return modules.typescript.ScriptSnapshot.fromString(`
+declare const blend: { blah: 'BLAH!' };
+export = blend;
+        `);
+        // const text = fs.readFileSync(fileName, 'utf8');
+        // const snapshot = modules.typescript.ScriptSnapshot.fromString(text);
+        // return snapshot;
+      }
+
+      // Fall back to the default behavior.
+      const result = info.languageServiceHost.getScriptSnapshot(fileName);
+      return result;
+    };
+
+    languageServiceHost.resolveModuleNameLiterals = (
+      moduleNames,
+      containingFile,
+      redirectedReference,
+      options,
+      sourceFile,
+      reusedNames
+    ) => {
       return moduleNames.map(moduleName => {
-        return { resolvedModule: undefined };
+        if (moduleName.text.endsWith('.blend')) {
+          const resolvedModule: ts.ResolvedModuleFull = {
+            resolvedFileName: path.resolve(
+              path.dirname(containingFile),
+              moduleName.text,
+            ),
+            extension: modules.typescript.Extension.Dts,
+            isExternalLibraryImport: false,
+          };
+          return { resolvedModule };
+        }
+
+        // Fall back to the default behavior. (What I think is default?)
+        const result = modules.typescript.resolveModuleName(moduleName.text, containingFile, options, languageServiceHostProxy);
+        return { resolvedModule: result.resolvedModule };
       });
     };
 

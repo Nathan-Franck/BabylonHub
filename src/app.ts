@@ -22,6 +22,7 @@ import { StateStore } from "StateStore";
 import { RoomSpec } from "Room";
 import { newElement } from "HtmlUtils";
 import { ikRunner } from "IKRunner";
+import  * as CubeDefn from "../public/test.blend";
 
 export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   const startTime = performance.now();
