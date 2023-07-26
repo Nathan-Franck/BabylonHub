@@ -71,8 +71,9 @@ function init(modules: { typescript: typeof ts }) {
 
     languageServiceHost.getScriptSnapshot = (fileName: string) => {
       if (fileName.endsWith('.blend')) {
+        var parseResult = parseBlendFile(fileName);
         return modules.typescript.ScriptSnapshot.fromString(`
-declare const blend: { blah: 'BLAH!' };
+declare const blend: { parseResult: "${parseResult}" };
 export = blend;
         `);
         // const text = fs.readFileSync(fileName, 'utf8');
@@ -120,6 +121,18 @@ export = blend;
   }
 
   return { create };
+}
+
+function parseBlendFile(path: string)
+{
+  var file = fs.readFileSync(path);
+  var data = new DataView(file.buffer);
+  // "BLENDER" magic number
+  var magic = data.getUint32(0, true);
+  if (magic != 0x464c4572) {
+      return "Invalid magic number";
+  }
+  return "cool man.";
 }
 
 export = init;
