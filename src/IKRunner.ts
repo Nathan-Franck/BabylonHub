@@ -1,5 +1,7 @@
+import { engine } from "app";
 import { Vector3, Quaternion, TransformNode, MeshBuilder, Scene, Color4 } from "babylonjs";
 import { newElement } from "HtmlUtils"
+import { ObjUtil } from "ObjUtil";
 
 export function AngleBetween3Lengths(a: number, b: number, c: number): number {
   return Math.acos((a * a + b * b - c * c) / (2 * a * b));
@@ -29,31 +31,81 @@ export function ikRunner(
     BlendElbowToWristYaw, ForarmLength, UpperArmLength, ForearmBlend
   } = settings;
 
+  settings.ForearmBlend;
+
   // Automatically cross-cross the 'up' direction to get it orthoganal to the forward direction
-  function lazyFromLookDirection(forward: Vector3, up: Vector3) {
+  function SafeFromLookDirection(forward: Vector3, up: Vector3) {
     const finalUp = Vector3.Normalize(Vector3.Cross(forward, Vector3.Cross(up, forward)));
-    lazyDebugNormal(scene, "finalUp", state.position, finalUp, new Color4(1, 0, 0, 1));
-    lazyDebugNormal(scene, "forward", state.position, forward, new Color4(0, 0, 1, 1));
+    debug_normals(scene, {
+      finalUp: { position: state.position, normal: finalUp, color: new Color4(1, 0, 0, 1) },
+      forward: { position: state.position, normal: forward, color: new Color4(0, 0, 1, 1) }
+    });
     return Quaternion.FromLookDirectionLH(
       Vector3.Normalize(forward),
       finalUp,
     );
   }
 
-  function lazyDebugNormal(scene: Scene, identifier: string, position: Vector3, normal: Vector3, color: Color4) {
-    lazyDebugLine(scene, identifier, [position, position.add(normal)], color);
+  /**
+   * @param scene
+   * @param elements
+   * @example
+   * lazyDebugNormals(scene, {
+  *   finalUp: { position: state.position, normal: finalUp, color: new Color4(1, 0, 0, 1) },
+  *   forward: { position: state.position, normal: forward, color: new Color4(0, 0, 1, 1) }
+  * });
+  */
+  function debug_normals<Keys extends string>(
+    scene: Scene,
+    elements: Record<Keys, { position: Vector3, normal: Vector3, color: Color4 }>
+  ) {
+    debug_lines(scene, ObjUtil.mapValues(elements, ({ value: { position, normal, color } }) => ({
+      points: [position, position.add(normal)], color
+    })));
   }
-  function lazyDebugLine(scene: Scene, identifier: string, points: Vector3[], color: Color4) {
-    const debugLine = scene.getMeshByName(identifier);
-    if (debugLine) {
-      debugLine.dispose();
-    }
-    MeshBuilder.CreateLines(identifier, { points, colors: points.map(_ => color) }, scene);
+  function debug_lines(scene: Scene, elements: Record<string, { points: Vector3[], color: Color4 }>) {
+    const entries = Object.entries(elements);
+    entries.forEach(([key, { points, color }]) => {
+      const debugLine = scene.getMeshByName(key);
+      if (debugLine) {
+        debugLine.dispose();
+      }
+      MeshBuilder.CreateLines(key, { points, colors: points.map(_ => color) }, scene);
+    });
+    debug_label(scene, ObjUtil.mapValues(elements, ({ value: { points: [start, end] } }) => ({
+      position: start.add(end).scale(0.5), text: "debug"
+    })));
+
+  }
+
+  function debug_label(scene: Scene, elements: Record<string, { position: Vector3, text: string }>) {
+    Object.entries(elements).forEach(([key, { position, text }]) => {
+      const screenspacePosition = Vector3.One();//Vector3.Project(
+        // vector: position,
+        // world: scene.cameras[0].getWorldMatrix(),
+        // transform: scene.(),
+        // scene.cameras[0].viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()));
+      const labelDiv = document.getElementById(key);
+      if (labelDiv) {
+        labelDiv.remove();
+      }
+      newElement("div", document.body, {
+        style: {
+          position: "absolute",
+          left: `${screenspacePosition.x}px`,
+          top: `${screenspacePosition.y}px`,
+          color: "white",
+          zIndex: "1000",
+        },
+        id: key,
+        innerHTML: text,
+      });
+    });
   }
 
   // Orient shoulder to have down facing the elbow target, and forward facing the wrist target
   const shoulderToHandTarget: Vector3 = state.position.subtract(nodes.Shoulder.absolutePosition);
-  const startingShoulderRotation: Quaternion = lazyFromLookDirection(
+  const startingShoulderRotation: Quaternion = SafeFromLookDirection(
     shoulderToHandTarget,
     // Vector3.Lerp(
     Vector3.Up(),
@@ -63,16 +115,6 @@ export function ikRunner(
 
   // Calculate elbow angle required to get wrist to target position
   const shoulderToWristDistance: number = shoulderToHandTarget.length();
-  // Find and remove existing shoulderToWristDstance div
-  const existingShoulderToWristDistanceDiv = document.getElementById("shoulderToWristDistance");
-  if (existingShoulderToWristDistanceDiv) {
-    existingShoulderToWristDistanceDiv.remove();
-  }
-  newElement("div", document.body, {
-    id: "shoulderToWristDistance",
-    innerHTML: `shoulderToWristDistance: ${shoulderToWristDistance}`,
-    style: { position: 'absolute', top: '100px', left: '0px' }
-  });
   const elbowAngle: number = AngleBetween3Lengths(ForarmLength, UpperArmLength, shoulderToWristDistance);
   const shoulderAngle: number = AngleBetween3Lengths(shoulderToWristDistance, UpperArmLength, ForarmLength);
 
@@ -85,6 +127,8 @@ export function ikRunner(
     .multiply(Quaternion.RotationAxis(Vector3.Up(), -halfPi))
   nodes.Elbow.rotationQuaternion = Quaternion.RotationAxis(Vector3.Forward(), Math.PI + elbowAngle);
 
+  // TODO - actually get the next lines to work!
+
   // // Orient forearm to view wrist target within reasonable limits
   // nodes.Forearm.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Up(), Vector3.Forward().applyRotationQuaternion(Quaternion.Inverse(nodes.Elbow.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Right(), halfPi));
   // // Rotate mid region half of what forearm got rotated
@@ -93,6 +137,7 @@ export function ikRunner(
   // nodes.Hand.rotationQuaternion = Quaternion.FromLookDirectionLH(Vector3.Right(), Vector3.Up().applyRotationQuaternion(Quaternion.Inverse(nodes.Forearm.absoluteRotationQuaternion).multiply(state.rotation))).multiply(Quaternion.RotationAxis(Vector3.Up(), -90));
 
   // remove previous "debugLine" mesh
-  ;
-  lazyDebugLine(scene, "debugLine", [nodes.Hand.getAbsolutePosition(), state.position], new Color4(0, 1, 0, 1));
+  debug_lines(scene, {
+    handToPosition: { points: [nodes.Hand.getAbsolutePosition(), state.position], color: new Color4(0, 1, 0, 1) }
+  });
 }

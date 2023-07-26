@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "typescript": "^5.0.2",
+    "typescript-plugin-css-modules": "^5.0.1",
     "vite": "^4.4.0",
     "vite-tsconfig-paths": "^4.2.0"
   },
@@ -17,6 +18,7 @@
     "babylon": "^6.18.0",
     "babylonjs-inspector": "^6.11.1",
     "gpu.js": "^2.16.0",
-    "ts-toolbelt": "^9.6.0"
+    "ts-toolbelt": "^9.6.0",
+    "blend-modules": "file:./blend-modules"
   }
 }

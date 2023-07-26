@@ -29,13 +29,13 @@ export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   console.log(name, performance.now() - startTime, "ms");
   return result;
 }
+export const canvas = CreateStandardCanvas();
+export const engine = new Engine(canvas, true);
 
 async function run() {
   const startTime = performance.now();
-  const canvas = CreateStandardCanvas();
 
   // initialize babylon scene and engine
-  const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
 
   const debugStateStore = new StateStore("debug", {
@@ -143,7 +143,7 @@ async function run() {
     ...dishModelStats.fromChildNode("Bottom", radiusAndPosition),
   };
 
-  ObjUtil.entries(Dishes.meshes).forEach(([name, mesh]) => {
+  Object.entries(Dishes.meshes).forEach(([name, mesh]) => {
     const thickness = DishThicknesses[name];
     const stack = [mesh];
     for (let i = 0; i < 3; i++) {
@@ -198,7 +198,6 @@ async function run() {
 
   const pseudoRandom01 = mulberry32(0);
 
-  // this is a comment
   // Using the radius of the bottom of the fork, fill another bowl with forks.
   function FillItWithSpoons(dishToFill: Dish, offset: Vector3) {
     const dishInstance = Dishes.meshes[dishToFill].clone(`${dishToFill}-instance`, null)!;
@@ -347,8 +346,8 @@ async function run() {
     engine.resize();
   });
 
-  // Force recaltulate world matrices recursively up from FPSRig
-  ObjUtil.values(FPSRig.transformNodes).forEach(node => node.computeWorldMatrix(true));
+  // Force recalculate world matrices recursively up from FPSRig
+  Object.values(FPSRig.transformNodes).forEach(node => node.computeWorldMatrix(true));
   const ikTestPosition = FPSRig.transformNodes.Hand.absolutePosition.add(new Vector3(0, -1, 0));
   const ikStats = {
     BlendElbowToWristYaw: 0,
@@ -361,7 +360,9 @@ async function run() {
       .length(),
   };
 
+  // get viewport
   scene.registerBeforeRender(() => {
+    const viewport = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
     ikRunner(
       scene,
       {
