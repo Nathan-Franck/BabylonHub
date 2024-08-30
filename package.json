@@ -15,9 +15,8 @@
     "vite-tsconfig-paths": "^4.2.0"
   },
   "dependencies": {
-    "babylon": "^6.18.0",
-    "babylonjs-inspector": "^6.11.1",
-    "gpu.js": "^2.16.0",
+    "babylon": "latest",
+    "babylonjs-inspector": "latest",
     "ts-toolbelt": "^9.6.0",
     "blend-modules": "file:./blend-modules"
   }

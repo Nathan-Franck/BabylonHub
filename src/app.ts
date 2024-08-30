@@ -22,7 +22,6 @@ import { StateStore } from "StateStore";
 import { RoomSpec } from "Room";
 import { newElement } from "HtmlUtils";
 import { ikRunner } from "IKRunner";
-import  * as CubeDefn from "../public/Cube.blend";
 
 export async function timeAsync<T>(name: string, f: () => T): Promise<T> {
   const startTime = performance.now();
@@ -104,12 +103,21 @@ async function run() {
     ArmatureAction.stop();
     WristCurl.stop();
     Slip.stop();
-
   }
 
+  const spawnRoom = async () => {
   const Room = await StaticGLTF.Load(scene, "Room.glb", RoomSpec);
   console.table(Room.transformNodes);
-  const Dishes = await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec);
+    // spin triangles backwards
+    {
+      const mesh = Room.meshes.Floorboards;
+      mesh.flipFaces(true);
+    }
+  }
+  // await spawnRoom();
+
+  const Dishes = await StaticGLTF.Load(scene, "Dishes.glb", DishesSpec);  
+  Dishes.meshes.Bowl.dispose() // Conventional Mesh methods available!
 
   // Move dishes to the right.
   Dishes.root.position = new Vector3(10, 0, 0);
@@ -254,45 +262,54 @@ async function run() {
   FillItWithSpoons("Cup", new Vector3(0, 0, 0));
   FillItWithSpoons("Plate", new Vector3(2, 0, 0));
 
-  // spin triangles backwards
-  {
-    const mesh = Room.meshes.Floorboards;
-    mesh.flipFaces(true);
-  }
+
 
   // Focus camera on bounds of mesh
   {
-    const bounds = FPSRig.meshes.Arm.getHierarchyBoundingVectors();
-    const center = bounds.max.add(bounds.min).scale(0.5);
-    camera.setTarget(center);
+  
+    const focusOnStack = () => 
+    {
+      camera.setTarget(new Vector3(0, 2, -3));
+    }
+
+    const focusOnArm = () => {
+      const bounds = FPSRig.meshes.Arm.getHierarchyBoundingVectors();
+      const center = bounds.max.add(bounds.min).scale(0.5);
+      camera.setTarget(center);
+    }
+
+    focusOnStack();
   }
 
   // Stack some dishes.
   (async () => {
-    const stack: Dish[] = [];
-    const stackNode = new TransformNode("stack", scene);
-    stackNode.position = new Vector3(0, 0, -3);
-    for (let i = 0; i < 30; i++) {
-      stack.push(ObjUtil.randomKey(StackingCompatability));
-      stack.sort((a, b) =>
-        StackingCompatability[a]?.includes(b)
-          ? -1
-          : StackingCompatability[b]?.includes(a)
-            ? 1
-            : 0);
-      stackNode.getChildMeshes().forEach((mesh) => mesh.dispose());
-      var currentHeight = 0;
-      stack.forEach((dish, i) => {
-        const mesh = Dishes.meshes[dish].clone(`${dish}${i}`, stackNode)!;
-        shadowGenerator.addShadowCaster(mesh);
-        mesh.receiveShadows = true;
-        mesh.position = Vector3.Up().scale(currentHeight);
-        currentHeight += DishThicknesses[dish];
-      });
-      await new Promise((resolve) => setTimeout(
-        resolve,
-        100
-      ));
+    while (true) {
+      const stack: Dish[] = [];
+      const stackNode = new TransformNode("stack", scene);
+      stackNode.position = new Vector3(0, 0, -3);
+      for (let i = 0; i < 30; i++) {
+        stack.push(ObjUtil.randomKey(StackingCompatability));
+        stack.sort((a, b) =>
+          StackingCompatability[a]?.includes(b)
+            ? -1
+            : StackingCompatability[b]?.includes(a)
+              ? 1
+              : 0);
+        stackNode.getChildMeshes().forEach((mesh) => mesh.dispose());
+        var currentHeight = 0;
+        stack.forEach((dish, i) => {
+          const mesh = Dishes.meshes[dish].clone(`${dish}${i}`, stackNode)!;
+          shadowGenerator.addShadowCaster(mesh);
+          mesh.receiveShadows = true;
+          mesh.position = Vector3.Up().scale(currentHeight);
+          currentHeight += DishThicknesses[dish];
+        });
+        await new Promise((resolve) => setTimeout(
+          resolve,
+          100
+        ));
+      }
+      stackNode.dispose();
     }
   })();
 
@@ -309,6 +326,7 @@ async function run() {
     enablePopup: false,
   });
 
+  Dishes.meshes.Bowl.dispose() // It's a Mesh type!
 
   newElement("button", document.body, {
     innerText: "Show Inspector",
